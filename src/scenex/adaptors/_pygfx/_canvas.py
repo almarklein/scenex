@@ -59,6 +59,7 @@ def _rendercanvas_class() -> BaseRenderCanvas:
         # We can get away with returning a RenderCanvas directly, but we have to
         # override its Destroy method to avoid it trying to clean up the widget
         # if the user reparents it.
+        rendercanvas.utils.acyncs.USE_THREADED_TIMER = False
         class _RenderCanvas(rendercanvas.wx.RenderCanvas):
 
             def Destroy(self) -> bool:
