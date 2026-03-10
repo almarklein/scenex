@@ -35,7 +35,9 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Typing :: Typed",
 ]
-dependencies = ["cmap>=0.5", "numpy>=1.24", "psygnal>=0.11.1", "pydantic>=2.10", "pylinalg"]
+dependencies = ["cmap>=0.5", "numpy>=1.24", "psygnal>=0.11.1", "pydantic>=2.10", "pylinalg"
+    "rendercanvas @ http://github.com/pygfx/rendercanvas/archive/closing.zip",
+    ]
 
 [project.optional-dependencies]
 jupyter = [
@@ -59,7 +61,6 @@ pygfx = [
     # Needed for per-material blending modes
     "pygfx>=0.13.0",
     # Needed to correctly resizes wx widgets
-    "rendercanvas @ http://github.com/pygfx/rendercanvas/archive/closing.zip",
 ]
 vispy = ["vispy>=0.15.0", "pyopengl"]
 # This extra is a mess!
