@@ -4,7 +4,7 @@ requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [tool.hatch.metadata]
-allow-direct-reference = true
+allow-direct-references = true
 
 # https://hatch.pypa.io/latest/config/metadata/
 [tool.hatch.version]
