@@ -60,11 +60,6 @@ def _rendercanvas_class() -> BaseRenderCanvas:
         # override its Destroy method to avoid it trying to clean up the widget
         # if the user reparents it.
         class _RenderCanvas(rendercanvas.wx.RenderCanvas):
-            def __init__(self, *args: Any, **kwargs: Any) -> None:
-                # FIXME: "bitmap" present mode causes hanging on GitHub Actions CLI
-                # FIXME: previous frames are not cleared in "bitmap" present mode
-                kwargs["present_method"] = "screen"
-                super().__init__(*args, **kwargs)  # type: ignore
 
             def Destroy(self) -> bool:
                 # Overridden to avoid cleaning up the renderCanvas widget, IF it got
