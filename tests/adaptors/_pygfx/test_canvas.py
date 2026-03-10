@@ -8,7 +8,6 @@ import scenex.adaptors._pygfx as adaptors
 
 def test_close() -> None:
     """Ensures that the RenderCanvas is closed (soon) after closing the model."""
-    1/0
     canvas = snx.Canvas()
     py_canvas = adaptors.adaptors.get_adaptor(canvas, create=True)
     assert isinstance(py_canvas, adaptors.Canvas)
