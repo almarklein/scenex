@@ -155,13 +155,19 @@ class WxEventFilter(EventFilter):
 class WxAppWrap(App):
     """Provider for wxPython."""
 
+    _app = None
+
     def create_app(self) -> Any:
-        if wx.App.Get():
-            return wx.App.Get()
-        return wx.App(False)
+        if self._app is None:
+            app = wx.App.GetInstance()
+            if app is None:
+                app = wx.App()
+                wx.App.SetInstance(app)
+            self._app = app
+        return self._app
 
     def run(self) -> None:
-        app = wx.App.Get() or self.create_app()
+        app = self.create_app()
 
         # if ipy_shell := self._ipython_shell():
         #     # if we're already in an IPython session with %gui qt, don't block

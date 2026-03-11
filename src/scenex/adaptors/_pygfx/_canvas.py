@@ -67,7 +67,10 @@ def _rendercanvas_class() -> BaseRenderCanvas:
                 # reparented. This is likely wrong.
                 return super(wx.Frame, self).Destroy()  # type: ignore
 
-        return _RenderCanvas()
+        return rendercanvas.wx.RenderCanvas()
+        # return _RenderCanvas()
+        # app()
+        # return rendercanvas.wx.WxRenderWidget()
 
     raise ValueError("No suitable render canvas found")
 
