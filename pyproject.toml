@@ -36,7 +36,7 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = ["cmap>=0.5", "numpy>=1.24", "psygnal>=0.11.1", "pydantic>=2.10", "pylinalg",
-    "rendercanvas @ http://github.com/pygfx/rendercanvas/archive/closing.zip",
+    "rendercanvas @ http://github.com/pygfx/rendercanvas/archive/1c9c799a396d2cb12861e0a211b2d4466ffeb536.zip",
     ]
 
 [project.optional-dependencies]
