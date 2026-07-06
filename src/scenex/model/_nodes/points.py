@@ -46,35 +46,39 @@ class Points(Node):
     Examples
     --------
     Create simple point markers:
-        >>> import numpy as np
-        >>> vertices = np.random.rand(100, 2) * 100
-        >>> points = Points(
-        ...     vertices=vertices,
-        ...     size=5,
-        ...     face_color=UniformColor(color=Color("red")),
-        ... )
+
+    >>> import numpy as np
+    >>> vertices = np.random.rand(100, 2) * 100
+    >>> points = Points(
+    ...     vertices=vertices,
+    ...     size=5,
+    ...     face_color=UniformColor(color=Color("red")),
+    ... )
 
     Create points with custom symbols and styling:
-        >>> points = Points(
-        ...     vertices=vertices,
-        ...     symbol="star",
-        ...     size=20,
-        ...     face_color=UniformColor(color=Color("yellow")),
-        ...     edge_color=UniformColor(color=Color("orange")),
-        ...     edge_width=2,
-        ... )
+
+    >>> points = Points(
+    ...     vertices=vertices,
+    ...     symbol="star",
+    ...     size=20,
+    ...     face_color=UniformColor(color=Color("yellow")),
+    ...     edge_color=UniformColor(color=Color("orange")),
+    ...     edge_width=2,
+    ... )
 
     Create fixed-size points that don't scale with zoom:
-        >>> points = Points(
-        ...     vertices=vertices,
-        ...     size=10,
-        ...     scaling="fixed",
-        ...     face_color=UniformColor(color=Color("blue")),
-        ... )
+
+    >>> points = Points(
+    ...     vertices=vertices,
+    ...     size=10,
+    ...     scaling="fixed",
+    ...     face_color=UniformColor(color=Color("blue")),
+    ... )
 
     Create 3D points:
-        >>> vertices_3d = np.random.rand(50, 3) * 100
-        >>> points = Points(vertices=vertices_3d, symbol="diamond", size=15)
+
+    >>> vertices_3d = np.random.rand(50, 3) * 100
+    >>> points = Points(vertices=vertices_3d, symbol="diamond", size=15)
     """
 
     node_type: Literal["points"] = "points"
@@ -134,18 +138,24 @@ class Points(Node):
         )  # type: ignore
 
     def passes_through(self, ray: Ray) -> float | None:
-        if self.scaling in (False, "fixed"):
+        if self.scaling == "fixed":
             # Note that fixed-size points are tested in screen/canvas space
+            # i.e. we'll need a canvas to determine the pixel size.
+            if ray.source.rect is None:
+                raise ValueError(
+                    f"Ray source {ray.source} must be displayed on a canvas for "
+                    "intersection tests with 'fixed'-scaled points."
+                )
             # There's then a question of what the returned "distance" means here.
             # For our purposes, consider a plane, perpendicular to the ray, passing
             # through the closest intersected point. The returned distance is then the
             # distance along the ray to that plane.
             return self._passes_through_screen(ray)
-        elif self.scaling in (True, "scene"):
+        elif self.scaling == "scene":
             return self._passes_through_world(ray)
-        else:  # "scene"
+        else:  # "visual"
             raise NotImplementedError(
-                "Points with 'scene' scaling mode do not (yet) support "
+                "Points with 'visual' scaling mode do not (yet) support "
                 "ray intersection tests."
             )
 
@@ -208,20 +218,21 @@ class Points(Node):
     @staticmethod
     def _world_to_canvas(ray: Ray, points: np.ndarray) -> np.ndarray:
         """Convert world coordinates to canvas coordinates."""
-        cam = ray.source.camera
-        layout = ray.source.layout
+        view = ray.source
+        cam = view.camera
         ndc_points = cam.projection.map(cam.transform.imap(points))[:, :2]
-        return (ndc_points + 1) / 2 * (layout.width, layout.height)
+        _, _, w, h = view.content_rect  # type: ignore[misc]
+        return (ndc_points + 1) / 2 * (w, h)
 
     def _node_to_canvas(self, view: View) -> np.ndarray:
         """Convert node coordinates to canvas coordinates."""
         cam = view.camera
-        layout = view.layout
         tform_to_root_scene = self.transform_to_node(view.scene)
         ndc_points = cam.projection.map(
             cam.transform.imap(tform_to_root_scene.map(self.vertices))
         )[:, :2]
-        return np.asarray((ndc_points + 1) / 2 * (layout.width, layout.height))
+        _, _, w, h = view.content_rect  # type: ignore[misc]
+        return np.asarray((ndc_points + 1) / 2 * (w, h))
 
     def _passes_through_world(self, ray: Ray) -> float | None:
         # Math graciously adapted from:

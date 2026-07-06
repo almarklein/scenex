@@ -50,6 +50,10 @@ from .model._color import (
     UniformColor,
     VertexColors,
 )
+from .model._layout import (
+    Coord,
+    Layout,
+)
 from .model._nodes.camera import Camera, CameraController, Orbit, PanZoom
 from .model._nodes.image import Image
 from .model._nodes.line import Line
@@ -61,15 +65,17 @@ from .model._nodes.text import Text
 from .model._nodes.volume import Volume
 from .model._transform import Transform
 from .model._view import Letterbox, ResizePolicy, View
-from .util import run, show
+from .util import native, run, set_cursor, show
 
 __all__ = [
     "Camera",
     "CameraController",
     "Canvas",
     "ColorModel",
+    "Coord",
     "FaceColors",
     "Image",
+    "Layout",
     "Letterbox",
     "Line",
     "Mesh",
@@ -85,7 +91,9 @@ __all__ = [
     "VertexColors",
     "View",
     "Volume",
+    "native",
     "run",
+    "set_cursor",
     "show",
     "use",
 ]

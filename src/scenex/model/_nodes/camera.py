@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import math
 from abc import abstractmethod
-from typing import TYPE_CHECKING, Annotated, Any, Literal, Union
+from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Literal, Union
 
 import numpy as np
 import pylinalg as la
-from pydantic import Field, PrivateAttr
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 from scenex.app.events import (
     MouseButton,
@@ -15,19 +15,22 @@ from scenex.app.events import (
     MousePressEvent,
     WheelEvent,
 )
-from scenex.model._base import EventedBase
 from scenex.utils import projections
 
 from .node import Node
 
 if TYPE_CHECKING:
+    import numpy.typing as npt
+
+    from scenex import View
     from scenex.app.events import Event
     from scenex.model._transform import Transform
 
-Position2D = tuple[float, float]
-Position3D = tuple[float, float, float]
-Vector3D = tuple[float, float, float]
-Position = Position2D | Position3D
+    Position2D = tuple[float, float]
+    Position3D = tuple[float, float, float]
+    Vector3D = tuple[float, float, float]
+    Position = Position2D | Position3D
+    Vec3Like = npt.ArrayLike
 
 AnyController = Annotated[
     Union["PanZoom", "Orbit", "None"], Field(discriminator="type")
@@ -55,19 +58,23 @@ class Camera(Node):
     Examples
     --------
     Create a camera with pan-zoom controller:
-        >>> camera = Camera(controller=PanZoom(), interactive=True)
+
+    >>> camera = Camera(controller=PanZoom(), interactive=True)
 
     Create a camera with orbit controller:
-        >>> camera = Camera(controller=Orbit(center=(0, 0, 0)), interactive=True)
+
+    >>> camera = Camera(controller=Orbit(center=(0, 0, 0)), interactive=True)
 
     Position a camera and point it at a target:
-        >>> camera = Camera()
-        >>> camera.transform = Transform().translated((10, 0, 0))
-        >>> camera.look_at((0, 0, 0), up=(0, 0, 1))
+
+    >>> camera = Camera()
+    >>> camera.transform = Transform().translated((10, 0, 0))
+    >>> camera.look_at((0, 0, 0), up=(0, 0, 1))
 
     Create a perspective camera:
-        >>> from scenex.utils.projections import perspective
-        >>> camera = Camera(projection=perspective(fov=70, near=0.1, far=100))
+
+    >>> from scenex.utils.projections import perspective
+    >>> camera = Camera(projection=perspective(fov=70, near=0.1, far=100))
     """
 
     node_type: Literal["camera"] = "camera"
@@ -99,7 +106,7 @@ class Camera(Node):
         return tuple(vector / np.linalg.norm(vector))
 
     @forward.setter
-    def forward(self, arg: Vector3D) -> None:
+    def forward(self, arg: Vec3Like) -> None:
         """Sets the forward direction of the camera."""
         # Check for no change - avoid divide-by-zeroes
         mag_old = np.linalg.norm(self.forward)
@@ -125,7 +132,7 @@ class Camera(Node):
         return tuple(self.transform.map((0, 1, 0)) - self.transform.map((0, 0, 0)))[:3]
 
     @up.setter
-    def up(self, arg: Vector3D) -> None:
+    def up(self, arg: Vec3Like) -> None:
         """Sets the up direction of the camera.
 
         Does not affect the forward direction of the camera so long as the new up
@@ -149,16 +156,18 @@ class Camera(Node):
             .translated(position)
         )
 
-    def look_at(self, target: Position3D, /, *, up: Vector3D | None = None) -> None:
+    def look_at(self, target: Vec3Like, /, *, up: Vec3Like | None = None) -> None:
         """Adjusts the camera to look at a target point in the world.
 
         Parameters
         ----------
-        target: Position3D
-            The position in 3D space that the camera should look at.
-        up: Vector3D, optional
-            The up direction for the camera. If provided, this vector must be
-            perpendicular to the forward vector that results from looking at target.
+        target: array-like
+            3 element sequence defining the position in 3D space that the camera
+            should look at.
+        up: array-like, optional
+            3 element sequence defining the up direction for the camera. If
+            provided, this vector must be perpendicular to the forward vector that
+            results from looking at target.
         """
         position = self.transform.map((0, 0, 0))[:3]
         self.forward = tuple(target - position)
@@ -175,7 +184,7 @@ class Camera(Node):
 # ====================================================================================
 
 
-class CameraController(EventedBase):
+class CameraController(BaseModel):
     """Base class defining how a camera responds to user interaction events.
 
     A CameraController handles user input (mouse, keyboard, wheel) to manipulate
@@ -190,10 +199,12 @@ class CameraController(EventedBase):
     Examples
     --------
     Create a camera with pan/zoom controller:
-        >>> camera = Camera(controller=PanZoom(), interactive=True)
+
+    >>> camera = Camera(controller=PanZoom(), interactive=True)
 
     Create a camera with orbit controller:
-        >>> camera = Camera(controller=Orbit(center=(0, 0, 0)), interactive=True)
+
+    >>> camera = Camera(controller=Orbit(center=(0, 0, 0)), interactive=True)
 
     See Also
     --------
@@ -202,8 +213,13 @@ class CameraController(EventedBase):
     Camera : Camera class that uses controllers
     """
 
+    model_config: ClassVar[ConfigDict] = ConfigDict(
+        validate_default=True,
+        validate_assignment=True,
+    )
+
     @abstractmethod
-    def handle_event(self, event: Event, camera: Camera) -> bool:
+    def handle_event(self, event: Event, view: View) -> bool:
         """
         Handle a user interaction event to control the camera.
 
@@ -215,16 +231,22 @@ class CameraController(EventedBase):
         event : Event
             The input event to handle (MouseMoveEvent, MousePressEvent, WheelEvent,
             KeyPressEvent, etc.)
-        camera : Camera
-            The camera node to manipulate.
+        view : View
+            The view containing the camera to manipulate.
 
         Returns
         -------
         bool
             True if the event was fully handled and should not propagate to other
             handlers, False if not handled or other handlers should process it.
+
+        Notes
+        -----
+        A ``View`` is passed rather than a ``Camera`` directly because controllers
+        need ``view.to_ray()`` to unproject screen-space event positions into world
+        space, which requires both the camera matrices and the viewport dimensions.
         """
-        raise NotImplementedError
+        ...
 
 
 class PanZoom(CameraController):
@@ -254,23 +276,27 @@ class PanZoom(CameraController):
     Examples
     --------
     Standard 2D pan and zoom:
-        >>> camera = Camera(controller=PanZoom(), interactive=True)
+
+    >>> camera = Camera(controller=PanZoom(), interactive=True)
 
     Lock horizontal movement for vertical scrolling only:
-        >>> camera = Camera(controller=PanZoom(lock_x=True), interactive=True)
+
+    >>> camera = Camera(controller=PanZoom(lock_x=True), interactive=True)
 
     Create an image viewer with pan/zoom:
-        >>> import numpy as np
-        >>> from scenex.utils import projections
-        >>> my_data = np.random.rand(512, 512).astype(np.float32)
-        >>> view = View(
-        ...     scene=Scene(children=[Image(data=my_data)]),
-        ...     camera=Camera(
-        ...         controller=PanZoom(),
-        ...         interactive=True,
-        ...     ),
-        ... )
-        >>> projections.zoom_to_fit(view=view, type="orthographic")
+
+    >>> import numpy as np
+    >>> import scenex as snx
+    >>> from scenex.utils import projections
+    >>> my_data = np.random.rand(512, 512).astype(np.float32)
+    >>> view = snx.View(
+    ...     scene=snx.Scene(children=[snx.Image(data=my_data)]),
+    ...     camera=snx.Camera(
+    ...         controller=snx.PanZoom(),
+    ...         interactive=True,
+    ...     ),
+    ... )
+    >>> projections.zoom_to_fit(view=view, type="orthographic")
 
     See Also
     --------
@@ -292,24 +318,21 @@ class PanZoom(CameraController):
     # Private state for tracking interactions
     _drag_pos: tuple[float, float] | None = PrivateAttr(default=None)
 
-    def handle_event(self, event: Event, camera: Camera) -> bool:
+    def handle_event(self, event: Event, view: View) -> bool:
         """Handle mouse and wheel events to pan/zoom the camera."""
-        from scenex.app.events import (
-            MouseButton,
-            MouseMoveEvent,
-            MousePressEvent,
-            WheelEvent,
-        )
-
-        if not camera.interactive:
+        if not view.camera.interactive:
             return False
 
         handled = False
 
+        if not isinstance(event, MouseEvent):
+            return False
+        if (ray := view.to_ray(event.pos)) is None:
+            return False
         # Panning involves keeping a particular position underneath the cursor.
         # That position is recorded on a left mouse button press.
         if isinstance(event, MousePressEvent) and MouseButton.LEFT in event.buttons:
-            self._drag_pos = event.world_ray.origin[:2]
+            self._drag_pos = ray.origin[:2]
         # Every time the cursor is moved, until the left mouse button is released,
         # We translate the camera such that the position is back under the cursor
         # (i.e. under the world ray origin)
@@ -318,13 +341,13 @@ class PanZoom(CameraController):
             and MouseButton.LEFT in event.buttons
             and self._drag_pos
         ):
-            new_pos = event.world_ray.origin[:2]
+            new_pos = ray.origin[:2]
             dx = self._drag_pos[0] - new_pos[0]
             if not self.lock_x:
-                camera.transform = camera.transform.translated((dx, 0))
+                view.camera.transform = view.camera.transform.translated((dx, 0))
             dy = self._drag_pos[1] - new_pos[1]
             if not self.lock_y:
-                camera.transform = camera.transform.translated((0, dy))
+                view.camera.transform = view.camera.transform.translated((0, dy))
             handled = True
 
         # Note that while panning adjusts the camera's transform matrix, zooming
@@ -335,7 +358,7 @@ class PanZoom(CameraController):
             if dy:
                 # Step 1: Adjust the projection matrix to zoom in or out.
                 zoom = self._zoom_factor(dy)
-                camera.projection = camera.projection.scaled(
+                view.camera.projection = view.camera.projection.scaled(
                     (1 if self.lock_x else zoom, 1 if self.lock_y else zoom, 1.0)
                 )
 
@@ -344,15 +367,15 @@ class PanZoom(CameraController):
                 # https://github.com/pygfx/pygfx/blob/520af2d5bb2038ec309ef645e4a60d502f00d181/pygfx/controllers/_panzoom.py#L164
 
                 # Find the distance between the world ray and the camera
-                zoom_center = np.asarray(event.world_ray.origin)[:2]
-                camera_center = np.asarray(camera.transform.map((0, 0)))[:2]
+                zoom_center = np.asarray(ray.origin)[:2]
+                camera_center = np.asarray(view.camera.transform.map((0, 0)))[:2]
                 # Compute the world distance before the zoom
                 delta_screen1 = zoom_center - camera_center
                 # Compute the world distance after the zoom
                 delta_screen2 = delta_screen1 * zoom
                 # The pan is the difference between the two
                 pan = (delta_screen2 - delta_screen1) / zoom
-                camera.transform = camera.transform.translated(
+                view.camera.transform = view.camera.transform.translated(
                     (
                         pan[0] if not self.lock_x else 0,
                         pan[1] if not self.lock_y else 0,
@@ -399,41 +422,45 @@ class Orbit(CameraController):
     Examples
     --------
     Orbit around the origin:
-        >>> from scenex.utils import projections
-        >>> # Create a perspective camera...
-        >>> camera = Camera(
-        ...     interactive=True,
-        ...     projection=projections.perspective(fov=70, near=1, far=1000),
-        ... )
-        >>> # ...positioned along the X axis...
-        >>> camera.transform = Transform().translated((100, 0, 0))
-        >>> # ...looking at the origin...
-        >>> camera.look_at((0, 0, 0), up=(0, 0, 1))
-        >>> # ...that orbits around the origin
-        >>> camera.controller = Orbit(center=(0, 0, 0))
+
+    >>> import scenex as snx
+    >>> from scenex.utils import projections
+    >>> # Create a perspective camera...
+    >>> camera = snx.Camera(
+    ...     interactive=True,
+    ...     projection=projections.perspective(fov=70, near=1, far=1000),
+    ... )
+    >>> # ...positioned along the X axis...
+    >>> camera.transform = snx.Transform().translated((100, 0, 0))
+    >>> # ...looking at the origin...
+    >>> camera.look_at((0, 0, 0), up=(0, 0, 1))
+    >>> # ...that orbits around the origin
+    >>> camera.controller = snx.Orbit(center=(0, 0, 0))
 
     Orbit around a data volume's center:
-        >>> import numpy as np
-        >>> my_data = np.random.rand(100, 100, 100).astype(np.float32)
-        >>> volume = Volume(data=my_data)
-        >>> center = np.mean(volume.bounding_box, axis=0)
-        >>> # Create a perspective camera...
-        >>> camera = Camera(
-        ...     interactive=True,
-        ...     projection=projections.perspective(fov=70, near=1, far=1000),
-        ... )
-        >>> # ...positioned along the X axis from the volume center...
-        >>> camera.transform = Transform().translated(center).translated((100, 0, 0))
-        >>> # ...looking at the center...
-        >>> camera.look_at(center, up=(0, 0, 1))
-        >>> # ...that orbits around the center
-        >>> camera.controller = Orbit(center=center)
+
+    >>> import numpy as np
+    >>> my_data = np.random.rand(100, 100, 100).astype(np.float32)
+    >>> volume = snx.Volume(data=my_data)
+    >>> center = np.mean(volume.bounding_box, axis=0)
+    >>> # Create a perspective camera...
+    >>> camera = snx.Camera(
+    ...     interactive=True,
+    ...     projection=projections.perspective(fov=70, near=1, far=1000),
+    ... )
+    >>> # ...positioned along the X axis from the volume center...
+    >>> camera.transform = snx.Transform().translated(center).translated((100, 0, 0))
+    >>> # ...looking at the center...
+    >>> camera.look_at(center, up=(0, 0, 1))
+    >>> # ...that orbits around the center
+    >>> camera.controller = snx.Orbit(center=center)
 
     Custom polar axis for Y-up scenes:
-        >>> camera = Camera(
-        ...     controller=Orbit(center=(0, 0, 0), polar_axis=(0, 1, 0)),
-        ...     interactive=True,
-        ... )
+
+    >>> camera = snx.Camera(
+    ...     controller=snx.Orbit(center=(0, 0, 0), polar_axis=(0, 1, 0)),
+    ...     interactive=True,
+    ... )
 
     Interactions
     ------------
@@ -470,14 +497,18 @@ class Orbit(CameraController):
     _last_canvas_pos: tuple[float, float] | None = PrivateAttr(default=None)
     _pan_ray: Any = PrivateAttr(default=None)  # Ray type
 
-    def handle_event(self, event: Event, camera: Camera) -> bool:
+    def handle_event(self, event: Event, view: View) -> bool:
         """Handle mouse and wheel events to orbit the camera."""
-        if not camera.interactive:
+        if not view.camera.interactive:
             return False
 
         handled = False
         center_array = np.asarray(self.center)
 
+        if not isinstance(event, MouseEvent):
+            return False
+        if (ray := view.to_ray(event.pos)) is None:
+            return False
         # Orbit on mouse move with left button held
         if (
             isinstance(event, MouseMoveEvent)
@@ -505,13 +536,13 @@ class Orbit(CameraController):
             #           that centerpoint.
 
             # Step 0: Gather transform components, relative to camera center
-            orbit_mat = camera.transform.translated(-center_array)
+            orbit_mat = view.camera.transform.translated(-center_array)
             position, _rotation, _scale = la.mat_decompose(orbit_mat.T)
-            camera_right = np.cross(camera.forward, camera.up)
+            camera_right = np.cross(view.camera.forward, view.camera.up)
 
             # Step 1
-            d_azimuth = self._last_canvas_pos[0] - event.canvas_pos[0]
-            d_elevation = self._last_canvas_pos[1] - event.canvas_pos[1]
+            d_azimuth = self._last_canvas_pos[0] - event.pos[0]
+            d_elevation = self._last_canvas_pos[1] - event.pos[1]
 
             # Step 2
             e_bound = float(la.vec_angle(position, (0, 0, 1)) * 180 / math.pi)
@@ -521,8 +552,8 @@ class Orbit(CameraController):
                 d_elevation = 180 - e_bound
 
             # Step 3
-            camera.transform = (
-                camera.transform.translated(-center_array)  # 3a
+            view.camera.transform = (
+                view.camera.transform.translated(-center_array)  # 3a
                 .rotated(d_elevation, camera_right)  # 3b
                 .rotated(d_azimuth, self.polar_axis)  # 3c
                 .translated(center_array)  # 3d
@@ -532,7 +563,7 @@ class Orbit(CameraController):
 
         # Pan on mouse press with right button
         elif isinstance(event, MousePressEvent) and event.buttons == MouseButton.RIGHT:
-            self._pan_ray = event.world_ray
+            self._pan_ray = ray
 
         # Pan on mouse move with right button held
         elif (
@@ -540,15 +571,13 @@ class Orbit(CameraController):
             and event.buttons == MouseButton.RIGHT
             and self._pan_ray is not None
         ):
-            dr = np.linalg.norm(camera.transform.map((0, 0, 0))[:3] - center_array)
+            dr = np.linalg.norm(view.camera.transform.map((0, 0, 0))[:3] - center_array)
             old_center = self._pan_ray.origin[:3] + np.multiply(
                 dr, self._pan_ray.direction
             )
-            new_center = event.world_ray.origin[:3] + np.multiply(
-                dr, event.world_ray.direction
-            )
+            new_center = ray.origin[:3] + np.multiply(dr, ray.direction)
             diff = np.subtract(old_center, new_center)
-            camera.transform = camera.transform.translated(diff)
+            view.camera.transform = view.camera.transform.translated(diff)
             # Update the center
             new_center_array = center_array + diff
             new_center_tuple = (
@@ -562,13 +591,15 @@ class Orbit(CameraController):
         elif isinstance(event, WheelEvent):
             _dx, dy = event.angle_delta
             if dy:
-                dr = camera.transform.map((0, 0, 0))[:3] - center_array
+                dr = view.camera.transform.map((0, 0, 0))[:3] - center_array
                 zoom = self._zoom_factor(dy)
-                camera.transform = camera.transform.translated(dr * (zoom - 1))
+                view.camera.transform = view.camera.transform.translated(
+                    dr * (zoom - 1)
+                )
             handled = True
 
         if isinstance(event, MouseEvent):
-            self._last_canvas_pos = event.canvas_pos
+            self._last_canvas_pos = event.pos
         return handled
 
     def _zoom_factor(self, delta: float) -> float:

@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable, Iterable
 from contextlib import suppress
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol, cast
 
 from scenex import model
 from scenex.app import app
@@ -22,6 +22,9 @@ from scenex.utils import projections
 
 if TYPE_CHECKING:
     from typing import TypeAlias
+
+    from scenex.adaptors._base import CanvasAdaptor
+    from scenex.app._auto import CursorType
 
     Tree: TypeAlias = str | dict[str, list["Tree"]]
 
@@ -34,7 +37,7 @@ if TYPE_CHECKING:
             ...
 
 
-__all__ = ["show", "tree_dict", "tree_repr"]
+__all__ = ["native", "show", "tree_dict", "tree_repr"]
 
 logger = logging.getLogger("scenex")
 
@@ -170,24 +173,51 @@ def show(
             scene = model.Scene(children=[obj])
             view = model.View(scene=scene)
 
-        canvas = model.Canvas(
-            # Respect the view size if provided
-            width=int(view.layout.width),
-            height=int(view.layout.height),
-            views=[view],
-        )
+        canvas = model.Canvas()
+        if view:
+            canvas.views.append(view)
 
     canvas.visible = True
     reg = get_adaptor_registry(backend=backend)
     reg.get_adaptor(canvas, create=True)
     app().create_app()
     for view in canvas.views:
-        projections.zoom_to_fit(view, zoom_factor=0.9, preserve_aspect_ratio=True)
+        projections.zoom_to_fit(view, zoom_factor=0.9, letterbox=True)
 
         # logger.debug("SHOW MODEL  %s", tree_repr(view.scene))
         # native_scene = view.scene._get_native()
         # logger.debug("SHOW NATIVE %s", tree_repr(native_scene))
     return canvas
+
+
+def native(canvas: model.Canvas, create: bool = True) -> Any:
+    """Get the native widget for the given canvas.
+
+    Parameters
+    ----------
+    canvas : model.Canvas
+        The canvas for which to get the native widget.
+    create : bool, optional
+        Whether to create adaptors if they do not already exist. Defaults to `True`.
+
+    Returns
+    -------
+    Any
+        The native widget associated with the canvas.
+
+    Raises
+    ------
+    KeyError
+        If no adaptor yet exists for `canvas` and `create=False`.
+
+    Notes
+    -----
+    This function is a convenience that retrieves the native widget from the first
+    adaptor associated with the canvas. If multiple adaptors are present, it returns the
+    native widget from the first one found.
+    """
+    for adaptor in canvas._get_adaptors(create=create):
+        return cast("CanvasAdaptor", adaptor)._snx_get_native()
 
 
 def run() -> None:
@@ -271,3 +301,27 @@ def _get_children(obj: Any) -> Iterable[Any]:
     if (children := getattr(obj, "children", None)) is None:
         return ()
     return _ensure_iterable(children)
+
+
+def set_cursor(canvas: model.Canvas, cursor: CursorType) -> None:
+    """Set the cursor for the given canvas.
+
+    Parameters
+    ----------
+    canvas : model.Canvas
+        The canvas on which to set the cursor.
+    cursor : CursorType
+        The type of cursor to set.
+
+    Notes
+    -----
+    Practically and generally speaking, setting the cursor is an app-level concern.
+    Unfortunately, setting the cursor often requires access to a native widget, meaning
+    any scenex abstractions for setting the cursor will need as input the canvas model
+    or a derivative adaptor. Proper separation of concerns suggests that the app-level
+    API should just take the native widget. This function is a convenience that performs
+    the intermediate steps to get the native widget from a canvas model.
+    """
+    for adaptor in canvas._get_adaptors(create=True):
+        widget = cast("CanvasAdaptor", adaptor)._snx_get_native()
+        app().set_cursor(widget, cursor)

@@ -61,8 +61,9 @@ def change_blend_mode(event: Event) -> bool:
     """Change the blend mode of a volume when it is clicked."""
     if not isinstance(event, (MousePressEvent)):
         return False
-    intersected_nodes = [node for node, _ in event.world_ray.intersections(view.scene)]
-    if volume1 not in intersected_nodes:
+    if not (ray := view.to_ray(event.pos)):
+        return False
+    if not ray.intersections(volume1):
         return False
     idx = blend_modes.index(volume1.blending)
     next_idx = (idx + 1) % len(blend_modes)
@@ -76,8 +77,6 @@ def change_blend_mode(event: Event) -> bool:
 
 view.set_event_filter(change_blend_mode)
 
-
-snx.use("vispy")
 snx.show(view)
 
 # Orbit around the center of the volume
