@@ -63,13 +63,13 @@ def _rendercanvas_class() -> BaseRenderCanvas:
             def __init__(self, *args: Any, **kwargs: Any) -> None:
                 # FIXME: "bitmap" present mode causes hanging on GitHub Actions CLI
                 # FIXME: previous frames are not cleared in "bitmap" present mode
-                kwargs["present_method"] = "screen"
+                # kwargs["present_method"] = "screen"
                 super().__init__(*args, **kwargs)  # type: ignore
 
-            def Destroy(self) -> bool:
-                # Overridden to avoid cleaning up the renderCanvas widget, IF it got
-                # reparented. This is likely wrong.
-                return super(wx.Frame, self).Destroy()  # type: ignore
+            # def Destroy(self) -> bool:
+            #     # Overridden to avoid cleaning up the renderCanvas widget, IF it got
+            #     # reparented. This is likely wrong.
+            #     return super(wx.Frame, self).Destroy()  # type: ignore
 
         return _RenderCanvas()
 
