@@ -35,9 +35,14 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Typing :: Typed",
 ]
-dependencies = ["cmap>=0.5", "numpy>=1.24", "psygnal>=0.11.1", "pydantic>=2.10", "pylinalg",
-    "rendercanvas @ http://github.com/pygfx/rendercanvas/archive/41d73300613b6842eef2693003f7c413dca75678.zip",
-    ]
+dependencies = [
+    "cmap>=0.5",
+    "numpy>=1.24",
+    "psygnal>=0.11.1",
+    "pydantic>=2.10",
+    "pylinalg",
+    "rendercanvas @ http://github.com/pygfx/rendercanvas/archive/5413e8fda2bd493c570486ce2333a89aa175637e.zip",
+]
 
 [project.optional-dependencies]
 jupyter = [
@@ -54,9 +59,7 @@ pyqt6 = [
     "pyqt6 >=6.5.3; python_version >= '3.12'",
     "qtpy >=2",
 ]
-wx= [
-    "wxpython >=4.2.2",
-]
+wx = ["wxpython >=4.2.2"]
 pygfx = [
     # Needed for per-material blending modes
     "pygfx>=0.13.0",
@@ -167,7 +170,20 @@ module = ["rendercanvas.*"]
 follow_untyped_imports = true
 
 [[tool.mypy.overrides]]
-module = ["pygfx.*", "vispy.*", "wgpu.*", "glfw.*", "pylinalg.*", "qtpy.*", "ipywidgets.*", "IPython.*", "jupyter", "jupyter_rfb.*", "wx.*", "pytestqt.*"]
+module = [
+    "pygfx.*",
+    "vispy.*",
+    "wgpu.*",
+    "glfw.*",
+    "pylinalg.*",
+    "qtpy.*",
+    "ipywidgets.*",
+    "IPython.*",
+    "jupyter",
+    "jupyter_rfb.*",
+    "wx.*",
+    "pytestqt.*",
+]
 ignore_missing_imports = true
 
 [tool.pydantic-mypy]
@@ -193,10 +209,7 @@ addopts = [
     # in our case, this will avoid import errors from backend-specific modules.
     "--doctest-ignore-import-errors",
 ]
-testpaths = [
-    "tests",
-    "src",
-]
+testpaths = ["tests", "src"]
 doctest_optionflags = ["ELLIPSIS", "NORMALIZE_WHITESPACE"]
 filterwarnings = [
     "error",
