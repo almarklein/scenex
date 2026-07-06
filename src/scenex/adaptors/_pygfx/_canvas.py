@@ -59,11 +59,13 @@ def _rendercanvas_class() -> BaseRenderCanvas:
         # We can get away with returning a RenderCanvas directly, but we have to
         # override its Destroy method to avoid it trying to clean up the widget
         # if the user reparents it.
+        # rendercanvas.utils.asyncs.USE_THREADED_TIMER = False
         class _RenderCanvas(rendercanvas.wx.RenderCanvas):
+
             def __init__(self, *args: Any, **kwargs: Any) -> None:
                 # FIXME: "bitmap" present mode causes hanging on GitHub Actions CLI
                 # FIXME: previous frames are not cleared in "bitmap" present mode
-                kwargs["present_method"] = "screen"
+                # kwargs["present_method"] = "screen"
                 super().__init__(*args, **kwargs)  # type: ignore
 
             def Destroy(self) -> bool:
@@ -71,7 +73,10 @@ def _rendercanvas_class() -> BaseRenderCanvas:
                 # reparented. This is likely wrong.
                 return super(wx.Frame, self).Destroy()  # type: ignore
 
-        return _RenderCanvas()
+        return rendercanvas.wx.RenderCanvas()
+        # return _RenderCanvas()
+        # app()
+        # return rendercanvas.wx.WxRenderWidget()
 
     raise ValueError("No suitable render canvas found")
 
