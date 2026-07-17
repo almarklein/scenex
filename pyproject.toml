@@ -3,6 +3,9 @@
 requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
+[tool.hatch.metadata]
+allow-direct-references = true
+
 # https://hatch.pypa.io/latest/config/metadata/
 [tool.hatch.version]
 source = "vcs"
@@ -45,7 +48,7 @@ dependencies = [
     # Gives us ModelWrapValidatorHandler
     "pydantic >=2.11",
     # Gives us la.mat_decompose
-    "pylinalg>=0.6.1"
+    "pylinalg>=0.6.1",
 ]
 
 [project.optional-dependencies]
@@ -64,14 +67,12 @@ pyqt6 = [
     "pyqt6 >=6.5.3; python_version >= '3.12'",
     "qtpy >=2",
 ]
-wx= [
-    "wxpython >=4.2.2",
-]
+wx = ["wxpython >=4.2.2"]
 pygfx = [
     # Needed for per-material blending modes
     "pygfx>=0.13.0",
     # Needed to correctly resizes wx widgets
-    "rendercanvas>=2.5.1"
+    "rendercanvas @ http://github.com/pygfx/rendercanvas/archive/44ff82a3f6a1ac496ab31867a4f8f3501c03e10a.zip",
 ]
 vispy = ["vispy>=0.15.0", "pyopengl>=3.1"]
 # This extra is a mess!
@@ -180,7 +181,19 @@ module = ["rendercanvas.*"]
 follow_untyped_imports = true
 
 [[tool.mypy.overrides]]
-module = ["pygfx.*", "vispy.*", "wgpu.*", "pylinalg.*", "qtpy.*", "ipywidgets.*", "IPython.*", "jupyter", "jupyter_rfb.*", "wx.*", "pytestqt.*"]
+module = [
+    "pygfx.*",
+    "vispy.*",
+    "wgpu.*",
+    "pylinalg.*",
+    "qtpy.*",
+    "ipywidgets.*",
+    "IPython.*",
+    "jupyter",
+    "jupyter_rfb.*",
+    "wx.*",
+    "pytestqt.*",
+]
 ignore_missing_imports = true
 
 [tool.pydantic-mypy]
@@ -210,10 +223,7 @@ addopts = [
     # in our case, this will avoid import errors from backend-specific modules.
     "--doctest-ignore-import-errors",
 ]
-testpaths = [
-    "tests",
-    "src",
-]
+testpaths = ["tests", "src"]
 doctest_optionflags = ["ELLIPSIS", "NORMALIZE_WHITESPACE"]
 filterwarnings = [
     "error",
